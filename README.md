@@ -7,34 +7,40 @@
 
 ![Windows Logo](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToJdo1ENov4AmAmS1VxCUWba1ylMODgf3KMA&s)
 
-**SinceLastBoot** is a PowerShell-based toolset designed to report environment changes to headless windows installs.
-Once installed every ssh login has an html report generated that details system and file changes since last login, current user also recieves a summary in terminal. 
+**SinceLastBoot** is a PowerShell toolset designed for headless Windows installations. It generates detailed HTML reports on system and file changes for every SSH login and provides a summary directly in the terminal.
 
-- Generates comprehensive system information reports on:
-  - CPU, Memory, and Storage usage.
-  - System updates and last boot time.
-  - Network statistics and recently edited files.
-  - Security logs, login attempts, and user information.
-  - Reports are saved as HTML files for easy review and sharing.
+---
 
-### **Alias: `SinceLastBoot`**
-- Combines the execution of two primary scripts located in:
-  - `$env:USERPROFILE\report.ps1`
-  - `$env:USERPROFILE\reportexport.ps1`
-- Provides a single command alias to streamline the process of running both scripts.
+## 🚀 **Features**
 
-##  **Installation**
+### **System Reports**
+- CPU, Memory, and Storage usage
+- System updates and last boot time
+- Network statistics and recently edited files
+- Security logs, login attempts, and user information
 
-./start.ps1
-All install data is removed from your system after installing, 
+### **HTML Reports**
+- Saved for easy review and sharing.
 
+### **Alias: SinceLastBoot**
+- Runs `$env:USERPROFILE\report.ps1` and `$env:USERPROFILE\reportexport.ps1` in a single command.
 
-### To Run the SinceLastBoot Alias
+---
+
+## 💡 **Installation**
+Run the `start.ps1` script:
+```powershell
+PS C:\> ./start.ps1
+```
+> Installation files are removed automatically after setup.
+
+---
+
+## 💻 **Usage**
+Run the **SinceLastBoot** alias:
 ```powershell
 PS C:\> SinceLastBoot
 ```
-
-
 
 ---
 
