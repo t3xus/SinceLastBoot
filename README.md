@@ -27,6 +27,20 @@
 
 ---
 
+## 📦 **NPM Package**
+
+The `SinceLastBoot` toolset is also available as an npm package:
+
+[![npm version](https://img.shields.io/npm/v/since-last-boot)](https://www.npmjs.com/package/since-last-boot)
+[![npm downloads](https://img.shields.io/npm/dm/since-last-boot)](https://www.npmjs.com/package/since-last-boot)
+
+### Install via npm:
+```bash
+npm install -g since-last-boot
+```
+
+---
+
 ## 💡 **Installation**
 Run the `start.ps1` script:
 ```powershell
