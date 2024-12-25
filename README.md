@@ -44,5 +44,45 @@ PS C:\> SinceLastBoot
 
 ---
 
+## 📋 **Example Output**
+### **Terminal Summary**:
+```
+Username: jdoe
+Hostname: WIN-12345
+CPU: Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz
+Memory: 8 GB / 16 GB
+Storage: 200 GB / 512 GB
+GPU: NVIDIA GeForce RTX 2070
+
+OS: Microsoft Windows 11 Pro
+Windows Version: 22H2
+Last Update: 2024-12-10
+Last Security Update: 2024-12-01
+Last User Logged In: jdoe
+
+Recent Files Edited:
+2024-12-23 14:45:00 - C:\Users\jdoe\Documents\report.docx
+2024-12-23 14:30:00 - C:\Users\jdoe\Desktop\notes.txt
+2024-12-22 18:20:00 - C:\Users\jdoe\Downloads\setup.exe
+2024-12-22 10:05:00 - C:\Users\jdoe\Projects\code.ps1
+2024-12-21 22:15:00 - C:\Users\jdoe\Pictures\image.png
+```
+
+### **HTML Report**:
+The HTML report includes:
+- A detailed breakdown of system metrics
+- Recent file changes:
+  - `report.docx` last edited on 2024-12-23
+  - `notes.txt` last edited on 2024-12-23
+  - `setup.exe` last edited on 2024-12-22
+  - `code.ps1` last edited on 2024-12-22
+  - `image.png` last edited on 2024-12-21
+- Login and security logs
+- Network activity
+
+The report is saved to the Desktop as `System_Report_<timestamp>.html`.
+
+---
+
 ## 📄 **License**
 This project is licensed under the MIT License. See the `LICENSE` file for details.
