@@ -1,8 +1,8 @@
 # Define file paths to delete
 $filesToDelete = @(
-    "C:\path\to\ds1",  # Replace with the actual path to ds1
-    "C:\path\to\ds2",  # Replace with the actual path to ds2
-    "C:\path\to\start.ps1"  # Replace with the actual path to start.ps1
+    "ds1",  # Replace with the actual path to ds1
+    "ds2",  # Replace with the actual path to ds2
+    "start.ps1"  # Replace with the actual path to start.ps1
 )
 
 # Delete files without notice
