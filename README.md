@@ -7,34 +7,15 @@
 
 ![Windows Logo](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToJdo1ENov4AmAmS1VxCUWba1ylMODgf3KMA&s)
 
-**SinceLastBoot** is a PowerShell-based toolset designed to manage and report system information, configure SSH, and automate cleanup and reporting processes effectively. It combines multiple scripts and resources into a cohesive workflow.
+**SinceLastBoot** is a PowerShell-based toolset designed to report environment changes to headless windows installs.
+Once installed every ssh login has an html report generated that details system and file changes since last login, current user also recieves a summary in terminal. 
 
----
-
-## 🚀 **Capabilities**
-
-### **`cleanup.ps1`**
-- Deletes specified files (`ds1`, `ds2`, `start.ps1`) without requiring confirmation.
-- Ensures efficient cleanup of unnecessary files to maintain system order.
-- Registers the `SinceLastBoot` alias to run reports and performs self-deletion.
-
-### **`report.ps1` and `reportexport.ps1`**
-- Generates comprehensive system information reports, including details about:
+- Generates comprehensive system information reports on:
   - CPU, Memory, and Storage usage.
   - System updates and last boot time.
   - Network statistics and recently edited files.
   - Security logs, login attempts, and user information.
-- Reports are saved as HTML files for easy review and sharing.
-
-### **`sshd_config.ps1`**
-- Configures the `sshd_config` file for OpenSSH on Windows.
-- Adds or updates the `ForceCommand` directive to run specific scripts (`report.ps1` and `reportexport.ps1`) upon SSH login.
-- Ensures a backup of the original configuration is created for safety.
-- Restarts the SSH service to apply changes.
-
-### **`start.ps1`**
-- Initializes tasks and serves as an entry point for other scripts in the workflow.
-- Ensures critical setup steps are completed before proceeding with further automation.
+  - Reports are saved as HTML files for easy review and sharing.
 
 ### **Alias: `SinceLastBoot`**
 - Combines the execution of two primary scripts located in:
@@ -42,24 +23,18 @@
   - `$env:USERPROFILE\reportexport.ps1`
 - Provides a single command alias to streamline the process of running both scripts.
 
----
+##  **Installation**
 
-## 💡 **Usage Example**
+./start.ps1
+All install data is removed from your system after installing, 
 
-### To Execute the Cleanup Script
-```powershell
-PS C:\> .\cleanup.ps1
-```
 
 ### To Run the SinceLastBoot Alias
 ```powershell
 PS C:\> SinceLastBoot
 ```
 
-### To Update `sshd_config`
-```powershell
-PS C:\> .\sshd_config.ps1
-```
+
 
 ---
 
