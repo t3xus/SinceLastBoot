@@ -41,8 +41,8 @@ try {
 Write-Host "sshd_config has been updated. Please restart the SSH service to apply changes." -ForegroundColor Yellow
 
 # Define source directories
-$ds1 = "C:\path\to\ds1"  # Replace with the actual path to ds1
-$ds2 = "C:\path\to\ds2"  # Replace with the actual path to ds2
+$ds1 = "ds1"  # Replace with the actual path to ds1
+$ds2 = "ds2"  # Replace with the actual path to ds2
 
 # Define destination directories
 $dest1 = Join-Path $env:USERPROFILE "report.ps1"
