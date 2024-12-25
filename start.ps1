@@ -70,5 +70,5 @@ Get-ChildItem -Path $ds2 -Recurse | ForEach-Object {
 Write-Host "Files have been moved successfully!"
 
 Restart-Service sshd
-./cleanup.ps1
+& ".\cleanup.ps1"
 
