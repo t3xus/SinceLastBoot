@@ -35,3 +35,13 @@ function SinceLastBoot {
 Set-Alias -Name SinceLastBoot -Value SinceLastBoot
 
 Write-Host "Cleanup complete and alias 'SinceLastBoot' created."
+
+# Self-delete the script
+try {
+    $currentScript = $MyInvocation.MyCommand.Path
+    Start-Sleep -Seconds 2 # Delay to ensure the script finishes execution
+    Remove-Item -Path $currentScript -Force
+    Write-Host "Self-deletion complete: $currentScript"
+} catch {
+    Write-Host "Failed to delete the script: $_" -ForegroundColor Red
+}
