@@ -40,5 +40,34 @@ try {
 # Inform user of completion
 Write-Host "sshd_config has been updated. Please restart the SSH service to apply changes." -ForegroundColor Yellow
 
+# Define source directories
+$ds1 = "C:\path\to\ds1"  # Replace with the actual path to ds1
+$ds2 = "C:\path\to\ds2"  # Replace with the actual path to ds2
+
+# Define destination directories
+$dest1 = Join-Path $env:USERPROFILE "report.ps1"
+$dest2 = Join-Path $env:USERPROFILE "reportexport.ps1"
+
+# Create destination directories if they do not exist
+if (-not (Test-Path -Path $dest1)) {
+    New-Item -ItemType Directory -Path $dest1
+}
+
+if (-not (Test-Path -Path $dest2)) {
+    New-Item -ItemType Directory -Path $dest2
+}
+
+# Move contents of ds1 to report.ps1
+Get-ChildItem -Path $ds1 -Recurse | ForEach-Object {
+    Move-Item -Path $_.FullName -Destination $dest1 -Force
+}
+
+# Move contents of ds2 to reportexport.ps1
+Get-ChildItem -Path $ds2 -Recurse | ForEach-Object {
+    Move-Item -Path $_.FullName -Destination $dest2 -Force
+}
+
+Write-Host "Files have been moved successfully!"
+
 Restart-Service sshd
 
