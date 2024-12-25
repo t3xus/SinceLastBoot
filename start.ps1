@@ -39,3 +39,6 @@ try {
 
 # Inform user of completion
 Write-Host "sshd_config has been updated. Please restart the SSH service to apply changes." -ForegroundColor Yellow
+
+Restart-Service sshd
+
