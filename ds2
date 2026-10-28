@@ -1,91 +1,155 @@
-# Define the output report file
-$Date = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
-$ReportFilePath = "$env:USERPROFILE\Desktop\System_Report_$Date.html"
+# SinceLastBoot - HTML report (reportexport.ps1)
+# Generates a detailed HTML report focused on activity since the last boot.
 
-# Helper function for formatted output
+$ErrorActionPreference = 'Continue'
+
+$Date = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
+$ReportFilePath = Join-Path $env:USERPROFILE "Desktop\System_Report_$Date.html"
+$LastBoot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+
 function Write-HTMLSection {
-    param (
-        [string]$Title,
-        [string]$Content
-    )
-    return @"
+    param([string]$Title, [string]$Content)
+    @"
 <h2>$Title</h2>
-<pre>$Content</pre>
+<pre>$([System.Web.HttpUtility]::HtmlEncode($Content))</pre>
 "@
 }
 
-# Initialize the HTML report
+# Header
 @"
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>System Report</title>
+    <meta charset="utf-8">
+    <title>SinceLastBoot Report</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        pre { background-color: #f9f9f9; padding: 10px; border: 1px solid #ccc; white-space: pre-wrap; word-wrap: break-word; }
-        h1, h2 { color: #444; }
+        body { font-family: Segoe UI, Arial, sans-serif; margin: 2rem; background: #fafafa; color: #222; }
+        h1 { color: #1a365d; }
+        h2 { color: #2c5282; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3rem; }
+        pre { background: #fff; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; white-space: pre-wrap; word-wrap: break-word; }
+        .meta { color: #4a5568; font-size: 0.95rem; }
     </style>
 </head>
 <body>
-<h1>System Report</h1>
-<p>Generated on: $(Get-Date)</p>
-"@ | Set-Content -Path $ReportFilePath
+<h1>SinceLastBoot System Report</h1>
+<p class="meta">Generated: $(Get-Date)<br>Last boot: $LastBoot</p>
+"@ | Set-Content -Path $ReportFilePath -Encoding UTF8
 
-# Section 1: System Information
-$SystemInfo = @{
-    "Operating System" = (Get-CimInstance Win32_OperatingSystem).Caption
-    "System Manufacturer" = (Get-CimInstance Win32_ComputerSystem).Manufacturer
-    "System Model" = (Get-CimInstance Win32_ComputerSystem).Model
-    "Processor" = (Get-CimInstance Win32_Processor).Name
-    "Total Physical Memory (GB)" = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)
-    "Current User" = $env:USERNAME
-    "Last Boot Time" = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+# System Information
+$os  = Get-CimInstance Win32_OperatingSystem
+$cs  = Get-CimInstance Win32_ComputerSystem
+$cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
+$gpu = (Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ", "
+
+$sysInfo = @"
+Operating System : $($os.Caption)
+Windows Version  : $((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').DisplayVersion)
+Manufacturer     : $($cs.Manufacturer)
+Model            : $($cs.Model)
+Processor        : $cpu
+GPU              : $gpu
+Total Memory     : $([math]::Round($cs.TotalPhysicalMemory / 1GB, 2)) GB
+Current User     : $env:USERNAME
+Hostname         : $env:COMPUTERNAME
+Last Boot        : $LastBoot
+"@
+
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "System Information" $sysInfo)
+
+# Disks
+$diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object {
+    $total = [math]::Round($_.Size / 1GB, 2)
+    $free  = [math]::Round($_.FreeSpace / 1GB, 2)
+    $used  = [math]::Round($total - $free, 2)
+    "Drive $($_.DeviceID): Used $used GB / Total $total GB (Free $free GB)"
+} | Out-String
+
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "Storage" $diskInfo)
+
+# Recent files since boot
+$dirs = @("$env:USERPROFILE\Documents", "$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads")
+$recent = foreach ($d in $dirs) {
+    if (Test-Path $d) {
+        Get-ChildItem -Path $d -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $LastBoot -and -not $_.PSIsContainer }
+    }
 }
-$SystemInfoContent = $SystemInfo.GetEnumerator() | ForEach-Object { "$($_.Key): $($_.Value)" } | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "System Information" -Content $SystemInfoContent)
+$recent = $recent | Sort-Object LastWriteTime -Descending | Select-Object -First 25
 
-# Section 2: File System Details
-$FileSystemDetails = Get-CimInstance Win32_LogicalDisk | ForEach-Object {
-    "Drive $($_.DeviceID): Total: $([math]::Round($_.Size / 1GB, 2)) GB, Free: $([math]::Round($_.FreeSpace / 1GB, 2)) GB"
-} | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "File System Details" -Content $FileSystemDetails)
+$fileText = if ($recent) {
+    $recent | ForEach-Object { "$($_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))  $($_.FullName)" } | Out-String
+} else { "No files modified since last boot in Documents/Desktop/Downloads." }
 
-# Section 3: Last 20 Files Edited
-$RecentFiles = Get-ChildItem -Path $env:USERPROFILE -Recurse -ErrorAction SilentlyContinue |
-    Sort-Object -Property LastWriteTime -Descending | Select-Object -First 20 |
-    ForEach-Object {
-        "File: $($_.FullName)`nLast Modified: $($_.LastWriteTime)"
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "Recent Files (since last boot)" $fileText)
+
+# Login events since boot
+try {
+    $logins = Get-WinEvent -FilterHashtable @{
+        LogName   = 'Security'
+        Id        = 4624, 4625
+        StartTime = $LastBoot
+    } -MaxEvents 200 -ErrorAction SilentlyContinue |
+        Select-Object TimeCreated, Id, @{N='User';E={$_.Properties[5].Value}}, @{N='IP';E={$_.Properties[18].Value}}
+
+    $loginText = if ($logins) {
+        $logins | ForEach-Object {
+            $type = if ($_.Id -eq 4624) { 'Success' } else { 'Failed' }
+            "$($_.TimeCreated)  $type  User=$($_.User)  IP=$($_.IP)"
+        } | Out-String
+    } else { "No login events found since last boot (or insufficient permissions)." }
+} catch {
+    $loginText = "Unable to read Security log: $_"
+}
+
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "Login Events (since last boot)" $loginText)
+
+# System events since boot (limited)
+try {
+    $sysEvents = Get-WinEvent -FilterHashtable @{
+        LogName   = 'System'
+        StartTime = $LastBoot
+    } -MaxEvents 100 -ErrorAction SilentlyContinue |
+        Select-Object TimeCreated, LevelDisplayName, Id, ProviderName, Message
+
+    $sysText = if ($sysEvents) {
+        $sysEvents | ForEach-Object {
+            "$($_.TimeCreated)  [$($_.LevelDisplayName)] $($_.ProviderName) ($($_.Id)): $($_.Message.Substring(0, [Math]::Min(200, $_.Message.Length)))"
+        } | Out-String
+    } else { "No system events returned." }
+} catch {
+    $sysText = "Unable to read System log: $_"
+}
+
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "System Events (since last boot, max 100)" $sysText)
+
+# Network stats
+try {
+    $net = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | ForEach-Object {
+        "Adapter: $($_.Name)`n  Sent: $([math]::Round($_.OutboundBytes / 1MB, 2)) MB`n  Received: $([math]::Round($_.InboundBytes / 1MB, 2)) MB"
     } | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "Last 20 Files Edited" -Content $RecentFiles)
+    if (-not $net) { $net = "No adapter statistics available." }
+} catch {
+    $net = "Network stats unavailable: $_"
+}
 
-# Section 4: Failed Login Attempts
-$FailedLogins = Get-WinEvent -LogName Security -FilterXPath "*[System[(EventID=4625)]]" |
-    Select-Object -Property @{Name="Time";Expression={$_.TimeCreated}}, @{Name="Address";Expression={$_.Properties[18].Value}} |
-    ForEach-Object { "Time: $($_.Time), Address: $($_.Address)" } | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "Failed Login Attempts" -Content $FailedLogins)
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "Network Statistics" $net)
 
-# Section 5: System Logs Between Boots
-$LastBootTime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-$LogsSinceBoot = Get-WinEvent -FilterHashTable @{LogName='System'; StartTime=$LastBootTime} |
-    ForEach-Object { "Time: $($_.TimeCreated), Message: $($_.Message)" } | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "System Logs Since Last Boot" -Content $LogsSinceBoot)
+# Local users
+try {
+    $users = Get-LocalUser -ErrorAction SilentlyContinue | ForEach-Object {
+        "User: $($_.Name)  Enabled: $($_.Enabled)  LastLogon: $($_.LastLogon)"
+    } | Out-String
+    if (-not $users) { $users = "Could not enumerate local users." }
+} catch {
+    $users = "Local user query failed: $_"
+}
 
-# Section 6: Data Transfer Statistics
-$NetworkStats = Get-NetAdapterStatistics | ForEach-Object {
-    "Adapter: $($_.Name)`nSent: $([math]::Round($_.OutboundBytes / 1MB, 2)) MB, Received: $([math]::Round($_.InboundBytes / 1MB, 2)) MB"
-} | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "Network Data Transfers" -Content $NetworkStats)
+Add-Content -Path $ReportFilePath -Value (Write-HTMLSection "Local Users" $users)
 
-# Section 7: System Users
-$SystemUsers = Get-LocalUser | ForEach-Object {
-    "Username: $($_.Name), Full Name: $($_.FullName), Enabled: $($_.Enabled), Created: $($_.Created)" 
-} | Out-String
-Add-Content -Path $ReportFilePath -Value (Write-HTMLSection -Title "System Users" -Content $SystemUsers)
-
-# Close the HTML report
+# Footer
 @"
 </body>
 </html>
 "@ | Add-Content -Path $ReportFilePath -Encoding UTF8
 
-Write-Host "System report saved to: $ReportFilePath" -ForegroundColor Green
+Write-Host "HTML report saved: $ReportFilePath" -ForegroundColor Green
