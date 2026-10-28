@@ -1,128 +1,150 @@
-# PowerShell System Since Last Boot Report 
-clear
-# Colors and Formatting
+# SinceLastBoot - Terminal summary (report.ps1)
+# Focuses on information since the last boot.
+
+$ErrorActionPreference = 'Continue'
+
 function Write-Colored {
-    param (
-        [string]$Text,
-        [string]$Color = "White"
-    )
-    try {
-        Write-Host $Text -ForegroundColor $Color -NoNewline
-    } catch {
-        Write-Host $Text -NoNewline  # Fallback to plain text
-    }
+    param([string]$Text, [string]$Color = 'White')
+    try { Write-Host $Text -ForegroundColor $Color -NoNewline } catch { Write-Host $Text -NoNewline }
 }
 
 function Write-ColoredLine {
-    param (
-        [string]$Text,
-        [string]$Color = "White"
-    )
+    param([string]$Text, [string]$Color = 'White')
     Write-Colored $Text $Color
     Write-Host
 }
 
-# Helper function for formatted label and value output
 function Write-LabeledLine {
-    param (
-        [string]$Label,   # The label text
-        [string]$Value,   # The value text
-        [string]$LabelColor = "DarkYellow",  # Default color for the label
-        [string]$ValueColor = "White"       # Default color for the value
+    param(
+        [string]$Label,
+        [string]$Value,
+        [string]$LabelColor = 'DarkYellow',
+        [string]$ValueColor = 'White'
     )
-    Write-Colored "${Label}: " $LabelColor  # Corrected to use ${} for variable interpolation
-    Write-ColoredLine "$Value" $ValueColor
+    Write-Colored "${Label}: " $LabelColor
+    Write-ColoredLine $Value $ValueColor
 }
 
-# Header Section
-function Draw-Header {
-    Write-Host
+function Get-LastBootTime {
+    (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
 }
 
-# Gather System Information
-function Gather-SystemInfo {
-    $Info = @{
+# --- Gather system info ---
+function Get-SystemInfo {
+    $os = Get-CimInstance Win32_OperatingSystem
+    $cs = Get-CimInstance Win32_ComputerSystem
+    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+    $gpu = (Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ", "
+
+    $totalMemGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
+    $freeMemGB  = [math]::Round($os.FreePhysicalMemory / 1MB, 2)
+    $usedMemGB  = [math]::Round($totalMemGB - $freeMemGB, 2)
+
+    $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3"
+    $totalDiskGB = [math]::Round(($disks | Measure-Object Size -Sum).Sum / 1GB, 2)
+    $freeDiskGB  = [math]::Round(($disks | Measure-Object FreeSpace -Sum).Sum / 1GB, 2)
+    $usedDiskGB  = [math]::Round($totalDiskGB - $freeDiskGB, 2)
+
+    $lastBoot = Get-LastBootTime
+
+    $lastUpdate = (Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
+    $secUpdate  = (Get-HotFix | Where-Object { $_.Description -like '*Security*' } | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
+
+    [pscustomobject]@{
         Username         = $env:USERNAME
         Hostname         = $env:COMPUTERNAME
-        OS               = (Get-CimInstance Win32_OperatingSystem).Caption
-        CPU              = (Get-CimInstance Win32_Processor).Name
-        Memory           = @{
-            Total = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)
-            Used  = [math]::Round($TotalMemory - ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB), 2)
-        }
-        Storage          = @{
-            Total = [math]::Round((Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Measure-Object -Property Size -Sum).Sum / 1GB, 2)
-            Used  = [math]::Round((Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Measure-Object -Property FreeSpace -Sum).Sum / 1GB, 2)
-        }
-        GPU              = (Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join ", "
-        WindowsVersion   = (Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion').ReleaseId
-        LastUpdate       = (Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
-        SecurityUpdate   = (Get-HotFix | Where-Object {$_.Description -like '*Security*'} | Sort-Object InstalledOn -Descending | Select-Object -First 1).InstalledOn
-        LastUserLoggedIn = (Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty UserName)
+        OS               = $os.Caption
+        WindowsVersion   = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').DisplayVersion
+        CPU              = $cpu.Name
+        MemoryUsed       = $usedMemGB
+        MemoryTotal      = $totalMemGB
+        StorageUsed      = $usedDiskGB
+        StorageTotal     = $totalDiskGB
+        GPU              = $gpu
+        LastBoot         = $lastBoot
+        LastUpdate       = $lastUpdate
+        SecurityUpdate   = $secUpdate
+        LastUser         = $cs.UserName
     }
-    return $Info
 }
 
-# Display System Info
-function Display-SystemInfo {
-    param ($Info)
+function Show-SystemInfo {
+    param($Info)
+    Write-Host
     Write-LabeledLine "Username" $Info.Username
     Write-LabeledLine "Hostname" $Info.Hostname
     Write-LabeledLine "CPU" $Info.CPU
-    Write-LabeledLine "Memory" "$($Info.Memory.Used) GB / $($Info.Memory.Total) GB"
-    Write-LabeledLine "Storage" "$($Info.Storage.Used) GB / $($Info.Storage.Total) GB"
+    Write-LabeledLine "Memory" "$($Info.MemoryUsed) GB / $($Info.MemoryTotal) GB"
+    Write-LabeledLine "Storage" "$($Info.StorageUsed) GB / $($Info.StorageTotal) GB"
     Write-LabeledLine "GPU" $Info.GPU
     Write-Host
     Write-LabeledLine "OS" $Info.OS
     Write-LabeledLine "Windows Version" $Info.WindowsVersion
+    Write-LabeledLine "Last Boot" $Info.LastBoot
     Write-LabeledLine "Last Update" $Info.LastUpdate
     Write-LabeledLine "Last Security Update" $Info.SecurityUpdate
-    Write-LabeledLine "Last User Logged In" $Info.LastUserLoggedIn
+    Write-LabeledLine "Last User Logged In" $Info.LastUser
     Write-Host
 }
 
-# Retrieve Last Edited Files
-function Display-LastEditedFiles {
-    Write-ColoredLine "Last 10 Files Edited:" "Yellow"
-    $TargetDirectories = @("$env:USERPROFILE\Documents", "$env:USERPROFILE\Desktop")
-    $Files = $TargetDirectories |
-             ForEach-Object { Get-ChildItem -Path $_ -Recurse -ErrorAction SilentlyContinue } |
-             Sort-Object -Property LastWriteTime -Descending | Select-Object -First 10
-    if ($Files) {
-        foreach ($File in $Files) {
-            $FileDate = $File.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
-            Write-ColoredLine "$FileDate - $($File.FullName)" "Gray"
+function Show-RecentFiles {
+    param([datetime]$Since)
+    Write-ColoredLine "Recent files (since last boot):" Yellow
+
+    $dirs = @(
+        "$env:USERPROFILE\Documents",
+        "$env:USERPROFILE\Desktop",
+        "$env:USERPROFILE\Downloads"
+    )
+
+    $files = foreach ($d in $dirs) {
+        if (Test-Path $d) {
+            Get-ChildItem -Path $d -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -ge $Since -and -not $_.PSIsContainer }
+        }
+    }
+
+    $files = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 15
+
+    if ($files) {
+        foreach ($f in $files) {
+            $ts = $f.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+            Write-ColoredLine "$ts  $($f.FullName)" Gray
         }
     } else {
-        Write-ColoredLine "No recent files found." "Gray"
+        Write-ColoredLine "No recent files found in Documents/Desktop/Downloads." Gray
     }
     Write-Host
 }
 
-# Login Attempts Section
-function Display-LoginAttempts {
-    Write-ColoredLine "Login Attempts:" "Yellow"
-    $LoginEvents = Get-WinEvent -LogName Security -FilterXPath "*[System[(EventID=4624 or EventID=4625)]]" -MaxEvents 50 |
-                   Select-Object -Property @{Name="User";Expression={($_.Properties[5].Value)}}, TimeCreated, Id
-    $TotalAttempts = $LoginEvents.Count
-    Write-LabeledLine "Total Login Attempts" $TotalAttempts
+function Show-LoginAttempts {
+    param([datetime]$Since)
+    Write-ColoredLine "Login attempts since last boot:" Yellow
+
+    try {
+        $events = Get-WinEvent -FilterHashtable @{
+            LogName   = 'Security'
+            Id        = 4624, 4625
+            StartTime = $Since
+        } -MaxEvents 100 -ErrorAction SilentlyContinue
+
+        $success = ($events | Where-Object Id -eq 4624).Count
+        $failed  = ($events | Where-Object Id -eq 4625).Count
+
+        Write-LabeledLine "Successful logons" $success
+        Write-LabeledLine "Failed logons" $failed
+    } catch {
+        Write-ColoredLine "Could not read Security log (run as admin for full details)." DarkGray
+    }
     Write-Host
 }
 
-# Footer Section
-function Draw-Footer {
-    Write-Host
-
-}
-
-# Main Execution
+# --- Main ---
 try {
-    Draw-Header
-    $SystemInfo = Gather-SystemInfo
-    Display-SystemInfo -Info $SystemInfo
-    Display-LastEditedFiles
-    Display-LoginAttempts
-    Draw-Footer
+    $info = Get-SystemInfo
+    Show-SystemInfo $info
+    Show-RecentFiles -Since $info.LastBoot
+    Show-LoginAttempts -Since $info.LastBoot
 } catch {
-    Write-ColoredLine "An error occurred: $_" "Red"
+    Write-ColoredLine "Report error: $_" Red
 }
